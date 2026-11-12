@@ -45,6 +45,9 @@ public class Program
             if (string.IsNullOrWhiteSpace(dto.Descricao))
                 return Results.BadRequest("A descrição do lembrete é obrigatória.");
 
+            if (dto.Descricao.Trim().Length > 500)
+                return Results.BadRequest("A descrição deve ter no máximo 500 caracteres.");
+
             var lembrete = new Lembrete(dto.Descricao.Trim());
 
             await contexto.Lembrete.AddAsync(lembrete);
@@ -189,6 +192,9 @@ public class Program
             if (string.IsNullOrWhiteSpace(dto.Descricao))
                 return Results.BadRequest("A descrição do lembrete é obrigatória.");
 
+            if (dto.Descricao.Trim().Length > 500)
+                return Results.BadRequest("A descrição deve ter no máximo 500 caracteres.");
+
             var lembreteExistente = await contexto.Lembrete.FindAsync(guid);
 
             if (lembreteExistente is null || !lembreteExistente.IsAtivo)
@@ -260,12 +266,14 @@ public class Program
         //ordenação
         var decrescente = dto.Direcao!.ToUpper() == "DESC";
 
-        query = (dto.Ordem ?? string.Empty).ToUpper() switch
+        IOrderedQueryable<Lembrete> ordenada = (dto.Ordem ?? string.Empty).ToUpper() switch
         {
             "DESCRICAO" => decrescente ? query.OrderByDescending(x => x.Descricao) : query.OrderBy(x => x.Descricao),
             "DATAATUALIZACAO" => decrescente ? query.OrderByDescending(x => x.DataAtualizacao) : query.OrderBy(x => x.DataAtualizacao),
             _ => decrescente ? query.OrderByDescending(x => x.DataCadastro) : query.OrderBy(x => x.DataCadastro),
         };
+
+        query = ordenada.ThenBy(x => x.Id);
 
         // paginação
         var pular = (dto.NumeroPagina - 1) * dto.TamanhoPagina;

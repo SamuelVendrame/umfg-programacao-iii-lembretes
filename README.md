@@ -18,6 +18,7 @@ O repositório tem as duas partes:
 2. Ajustar a `ConnectionString` em `api/umfg.programacaoiii.minimalapi.2026/appsettings.Development.json` (porta, usuário e senha do seu MySQL).
 3. Rodar o projeto com o perfil `https` (pelo Visual Studio ou com `dotnet run --launch-profile https` dentro da pasta do projeto).
 4. A API sobe em `https://localhost:7063`. As migrations rodam sozinhas na primeira requisição.
+5. Na primeira vez, confiar no certificado de desenvolvimento com `dotnet dev-certs https --trust`. Sem isso o navegador recusa a conexão https com a API e o front mostra erro de comunicação.
 
 ### Front-end
 
@@ -71,8 +72,8 @@ Liberar qualquer origem serve para o ambiente local. Em produção o certo seria
 Para os filtros, a ordenação e o PDF funcionarem foi preciso corrigir algumas coisas na API:
 
 - Os parâmetros de filtro do `LembreteQueryRequestDTO` passaram a ser opcionais (`string?` e `DateTime?`). Do jeito que estava, com `[AsParameters]`, todos eram obrigatórios na query string e os valores padrão das datas faziam a consulta não trazer nada.
-- A ordenação usava `OrderBy(x => dto.Ordem)`, que ordena por um valor fixo e não muda nada. Agora ela ordena pela coluna escolhida.
-- POST e PUT retornam 400 quando a descrição vem vazia, e as rotas com `{id}` retornam 400 quando o id não é um GUID válido (antes dava erro 500).
+- A ordenação usava `OrderBy(x => dto.Ordem)`, que ordena por um valor fixo e não muda nada. Agora ela ordena pela coluna escolhida e desempata pelo `Id`, para a paginação não repetir nem pular registros com o mesmo valor.
+- POST e PUT retornam 400 quando a descrição vem vazia ou passa de 500 caracteres, e as rotas com `{id}` retornam 400 quando o id não é um GUID válido (antes dava erro 500).
 - O PUT retorna 404 para lembrete já excluído.
 - O `Program.cs` estava salvo em ISO-8859-1. O compilador lê como UTF-8, então os acentos saíam quebrados no PDF e nas mensagens. O arquivo foi convertido para UTF-8.
 

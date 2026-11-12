@@ -4,7 +4,8 @@ const estado = {
     pagina: 1,
     ordem: "DataCadastro",
     direcao: "DESC",
-    totalPaginas: 1
+    totalPaginas: 1,
+    filtros: {}
 };
 
 const formulario = document.getElementById("formulario");
@@ -93,7 +94,25 @@ function montarParametros() {
     params.append("Ordem", estado.ordem);
     params.append("Direcao", estado.direcao);
 
-    const filtros = {
+    Object.entries(estado.filtros).forEach(([chave, valor]) => {
+        if (valor) {
+            params.append(chave, valor);
+        }
+    });
+
+    return params;
+}
+
+function aplicarFiltros() {
+    const erro = validarFiltros();
+    erroFiltro.textContent = erro;
+
+    if (erro) {
+        mostrarToast(erro, "erro");
+        return false;
+    }
+
+    estado.filtros = {
         Descricao: filtroDescricao.value.trim(),
         DataCadastroInicial: filtroCadastroInicial.value,
         DataCadastroFinal: filtroCadastroFinal.value,
@@ -101,13 +120,7 @@ function montarParametros() {
         DataAtualizacaoFinal: filtroAtualizacaoFinal.value
     };
 
-    Object.entries(filtros).forEach(([chave, valor]) => {
-        if (valor) {
-            params.append(chave, valor);
-        }
-    });
-
-    return params;
+    return true;
 }
 
 function validarFiltros() {
@@ -125,14 +138,6 @@ function validarFiltros() {
 }
 
 async function filtrarLembretes() {
-    const erro = validarFiltros();
-    erroFiltro.textContent = erro;
-
-    if (erro) {
-        mostrarToast(erro, "erro");
-        return;
-    }
-
     mostrarEstado("carregando");
 
     try {
@@ -162,14 +167,6 @@ async function filtrarLembretes() {
 }
 
 async function imprimirLembretes() {
-    const erro = validarFiltros();
-    erroFiltro.textContent = erro;
-
-    if (erro) {
-        mostrarToast(erro, "erro");
-        return;
-    }
-
     try {
         const response = await requisicao(`/lembretes/imprimir?${montarParametros()}`);
         const blob = await response.blob();
@@ -486,6 +483,7 @@ async function salvarLembrete(event) {
 function limparFiltros() {
     formFiltro.reset();
     erroFiltro.textContent = "";
+    estado.filtros = {};
     estado.pagina = 1;
     filtrarLembretes();
 }
@@ -545,6 +543,11 @@ descricao.addEventListener("input", () => {
 
 formFiltro.addEventListener("submit", event => {
     event.preventDefault();
+
+    if (!aplicarFiltros()) {
+        return;
+    }
+
     estado.pagina = 1;
     filtrarLembretes();
 });
