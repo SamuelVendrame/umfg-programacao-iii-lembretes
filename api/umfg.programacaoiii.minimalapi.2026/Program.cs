@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+Ôªøusing Microsoft.EntityFrameworkCore;
 using QuestPDF;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -11,20 +11,20 @@ namespace umfg.programacaoiii.minimalapi._2026;
 
 public class Program
 {    
-    //mÈtodo de startup do projeto
+    //m√©todo de startup do projeto
     public static void Main(string[] args)
     {
-        //variavel padr„o do .net permite definir as caracteristicas que a api ir· ter
-        //ex: autenticaÁ„o e autorizaÁ„o via JWT / qual banco de dados
+        //variavel padr√£o do .net permite definir as caracteristicas que a api ir√° ter
+        //ex: autentica√ß√£o e autoriza√ß√£o via JWT / qual banco de dados
         var builder = WebApplication.CreateBuilder(args);
         var connectionString = builder.Configuration["ConnectionString"] ?? string.Empty;
 
-        //aqui configuramos a conex„o da API com o banco de dados
+        //aqui configuramos a conex√£o da API com o banco de dados
         builder.Services
             .AddDbContext<MySqlContexto>(options => options.UseMySQL(connectionString));
             //.AddDbContext<MySqlContexto>(options => options.UseMySQL("Server=localhost;Port=3308;Database=umfg_lembrete_develop;Uid=root;Pwd=root;"));
 
-        //implementacao do CORS para permitir que a aplicaÁ„o frontend acesse a API (localhost)
+        //implementacao do CORS para permitir que a aplica√ß√£o frontend acesse a API (localhost)
         //no mundo real, restrinja o acesso apenas para o dominio do frontend conhecido. Ex.: .WithOrigins("https://app.empresa.com.br")
         builder.Services.AddCors(options =>
         {
@@ -37,11 +37,16 @@ public class Program
             });
         });
 
-        //aqui a aplicaÁ„o È construÌda
+        //aqui a aplica√ß√£o √© constru√≠da
         var app = builder.Build();
 
-        app.MapPost("/lembretes", async (Lembrete lembrete, MySqlContexto contexto) =>
+        app.MapPost("/lembretes", async (LembreteDTO dto, MySqlContexto contexto) =>
         {
+            if (string.IsNullOrWhiteSpace(dto.Descricao))
+                return Results.BadRequest("A descri√ß√£o do lembrete √© obrigat√≥ria.");
+
+            var lembrete = new Lembrete(dto.Descricao.Trim());
+
             await contexto.Lembrete.AddAsync(lembrete);
             await contexto.SaveChangesAsync();
 
@@ -50,10 +55,10 @@ public class Program
 
         app.MapGet("/lembretes/{id}", async (string id, MySqlContexto contexto) =>
         {
-            if (string.IsNullOrWhiteSpace(id))
-                return Results.BadRequest("id invalido!");
+            if (!Guid.TryParse(id, out var guid))
+                return Results.BadRequest("id inv√°lido!");
 
-            return await contexto.Lembrete.FirstOrDefaultAsync(x => x.Id == Guid.Parse(id) && x.IsAtivo) 
+            return await contexto.Lembrete.FirstOrDefaultAsync(x => x.Id == guid && x.IsAtivo) 
             is Lembrete lembrete ? Results.Ok(lembrete) : Results.NotFound();
         });
 
@@ -65,7 +70,7 @@ public class Program
         app.MapGet("/lembretes/filtro", async ([AsParameters] LembreteQueryDTO.LembreteQueryRequestDTO dto, MySqlContexto contexto) =>
         {
             if (dto.NumeroPagina <= 0 || dto.TamanhoPagina <= 0)
-                return Results.BadRequest("P·gina e tamanho da p·gina s„o obrigatÛrios.");
+                return Results.BadRequest("P√°gina e tamanho da p√°gina s√£o obrigat√≥rios.");
 
             var (lembretes, total) = await FiltrarLembretes(dto, contexto);
 
@@ -86,10 +91,10 @@ public class Program
         app.MapGet("/lembretes/imprimir", async ([AsParameters] LembreteQueryDTO.LembreteQueryRequestDTO dto, MySqlContexto contexto) =>
         {
             if (dto.NumeroPagina <= 0 || dto.TamanhoPagina <= 0)
-                return Results.BadRequest("P·gina e tamanho da p·gina s„o obrigatÛrios.");
+                return Results.BadRequest("P√°gina e tamanho da p√°gina s√£o obrigat√≥rios.");
 
             if (dto.NumeroPagina <= 0 || dto.TamanhoPagina <= 0)
-                return Results.BadRequest("P·gina e tamanho da p·gina s„o obrigatÛrios.");
+                return Results.BadRequest("P√°gina e tamanho da p√°gina s√£o obrigat√≥rios.");
 
             var (lembretes, total) = await FiltrarLembretes(dto, contexto);
 
@@ -102,7 +107,7 @@ public class Program
                     page.PageColor(Color.FromHex("#FFFFFF"));
 
                     page.Header()
-                        .Text("RelatÛrio de Lembretes")
+                        .Text("Relat√≥rio de Lembretes")
                         .SemiBold()
                         .FontSize(20)
                         .FontColor(Colors.Blue.Medium);
@@ -129,9 +134,9 @@ public class Program
 
                                     tabela.Header(header =>
                                     {
-                                        header.Cell().Text("DescriÁ„o").SemiBold();
+                                        header.Cell().Text("Descri√ß√£o").SemiBold();
                                         header.Cell().Text("Cadastro").SemiBold();
-                                        header.Cell().Text("AtualizaÁ„o").SemiBold();
+                                        header.Cell().Text("Atualiza√ß√£o").SemiBold();
                                         header.Cell().Text("Status").SemiBold();
                                     });
 
@@ -158,7 +163,10 @@ public class Program
 
         app.MapDelete("/lembretes/{id}", async (string id, MySqlContexto contexto) =>
         {
-            var lembrete = await contexto.Lembrete.FindAsync(Guid.Parse(id));
+            if (!Guid.TryParse(id, out var guid))
+                return Results.BadRequest("id inv√°lido!");
+
+            var lembrete = await contexto.Lembrete.FindAsync(guid);
 
             //conceito de fail first
             if (lembrete is null)
@@ -175,12 +183,18 @@ public class Program
 
         app.MapPut("/lembretes/{id}", async (string id, LembreteDTO dto, MySqlContexto contexto) =>
         {
-            var lembreteExistente = await contexto.Lembrete.FindAsync(Guid.Parse(id));
+            if (!Guid.TryParse(id, out var guid))
+                return Results.BadRequest("id inv√°lido!");
 
-            if (lembreteExistente is null)
+            if (string.IsNullOrWhiteSpace(dto.Descricao))
+                return Results.BadRequest("A descri√ß√£o do lembrete √© obrigat√≥ria.");
+
+            var lembreteExistente = await contexto.Lembrete.FindAsync(guid);
+
+            if (lembreteExistente is null || !lembreteExistente.IsAtivo)
                 return Results.NotFound();
 
-            lembreteExistente.SetDescricao(dto.Descricao);
+            lembreteExistente.SetDescricao(dto.Descricao.Trim());
             lembreteExistente.Update();
 
             contexto.Lembrete.Update(lembreteExistente);
@@ -195,9 +209,9 @@ public class Program
         //habilitar o uso da regra de CORS
         app.UseCors("Frontend");
 
-        //a api È iniciada de fato
+        //a api √© iniciada de fato
         app.Run();
-        //tudo que for colocado apÛs o run ser· executado somente quando a api for parada
+        //tudo que for colocado ap√≥s o run ser√° executado somente quando a api for parada
     }
 
     private static async Task<(List<Lembrete>, long)>FiltrarLembretes(
@@ -207,7 +221,7 @@ public class Program
                 .AsNoTracking()
                 .Where(x => x.IsAtivo);
 
-        //busca por descriÁ„o com tratamento de caracteres especiais para LIKE
+        //busca por descri√ß√£o com tratamento de caracteres especiais para LIKE
         if (!string.IsNullOrWhiteSpace(dto.Descricao))
         {
             var termo = dto.Descricao.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
@@ -215,26 +229,45 @@ public class Program
         }
 
         // Filtros opcionais
-        if (dto.DataCadastroInicial > DateTime.MinValue)
-            query = query.Where(x => x.DataCadastro >= dto.DataCadastroInicial);
+        if (dto.DataCadastroInicial.HasValue)
+        {
+            var cadastroInicial = dto.DataCadastroInicial.Value.Date;
+            query = query.Where(x => x.DataCadastro >= cadastroInicial);
+        }
 
-        if (dto.DataCadastroFinal < DateTime.MaxValue)
-            query = query.Where(x => x.DataCadastro < dto.DataCadastroFinal.Date.AddDays(1)); // inclui o dia inteiro
+        if (dto.DataCadastroFinal.HasValue)
+        {
+            var cadastroFinal = dto.DataCadastroFinal.Value.Date.AddDays(1);
+            query = query.Where(x => x.DataCadastro < cadastroFinal);
+        }
 
-        if (dto.DataAtualizacaoInicial > DateTime.MinValue)
-            query = query.Where(x => x.DataAtualizacao >= dto.DataAtualizacaoInicial);
+        if (dto.DataAtualizacaoInicial.HasValue)
+        {
+            var atualizacaoInicial = dto.DataAtualizacaoInicial.Value.Date;
+            query = query.Where(x => x.DataAtualizacao >= atualizacaoInicial);
+        }
 
-        if (dto.DataAtualizacaoFinal < DateTime.MaxValue)
-            query = query.Where(x => x.DataAtualizacao < dto.DataAtualizacaoFinal.Date.AddDays(1)); // inclui o dia inteiro
+        if (dto.DataAtualizacaoFinal.HasValue)
+        {
+            var atualizacaoFinal = dto.DataAtualizacaoFinal.Value.Date.AddDays(1);
+            query = query.Where(x => x.DataAtualizacao < atualizacaoFinal);
+        }
 
         //ordenar sempre do mais recente para o mais antigo
-        if (dto.Direcao.ToUpper() != "ASC" && dto.Direcao.ToUpper() != "DESC")
+        if (string.IsNullOrWhiteSpace(dto.Direcao) || (dto.Direcao.ToUpper() != "ASC" && dto.Direcao.ToUpper() != "DESC"))
             dto.Direcao = "DESC";
 
-        //ordenaÁ„o
-        query = dto.Direcao.ToUpper() == "DESC" ? query.OrderByDescending(x => dto.Ordem) : query.OrderBy(x => dto.Ordem);
+        //ordena√ß√£o
+        var decrescente = dto.Direcao!.ToUpper() == "DESC";
 
-        // paginaÁ„o
+        query = (dto.Ordem ?? string.Empty).ToUpper() switch
+        {
+            "DESCRICAO" => decrescente ? query.OrderByDescending(x => x.Descricao) : query.OrderBy(x => x.Descricao),
+            "DATAATUALIZACAO" => decrescente ? query.OrderByDescending(x => x.DataAtualizacao) : query.OrderBy(x => x.DataAtualizacao),
+            _ => decrescente ? query.OrderByDescending(x => x.DataCadastro) : query.OrderBy(x => x.DataCadastro),
+        };
+
+        // pagina√ß√£o
         var pular = (dto.NumeroPagina - 1) * dto.TamanhoPagina;
         var lembretes = await query.Skip(pular).Take(dto.TamanhoPagina).ToListAsync();
         var total = await query.CountAsync();
