@@ -1,504 +1,573 @@
-// ========================================
-// CONFIGURAÇÃO
-// ========================================
-
 const API_URL = "https://localhost:7063";
 
-let paginaAtual = 1;
-
-
-// ========================================
-// ELEMENTOS DA PÁGINA
-// ========================================
+const estado = {
+    pagina: 1,
+    ordem: "DataCadastro",
+    direcao: "DESC",
+    totalPaginas: 1
+};
 
 const formulario = document.getElementById("formulario");
 const formLembrete = document.getElementById("formLembrete");
-
+const tituloFormulario = document.getElementById("tituloFormulario");
 const lembreteId = document.getElementById("lembreteId");
 const descricao = document.getElementById("descricao");
+const erroDescricao = document.getElementById("erroDescricao");
+const contadorDescricao = document.getElementById("contadorDescricao");
+const btnSalvar = document.getElementById("btnSalvar");
+
+const formFiltro = document.getElementById("formFiltro");
+const filtroDescricao = document.getElementById("filtroDescricao");
+const filtroCadastroInicial = document.getElementById("filtroCadastroInicial");
+const filtroCadastroFinal = document.getElementById("filtroCadastroFinal");
+const filtroAtualizacaoInicial = document.getElementById("filtroAtualizacaoInicial");
+const filtroAtualizacaoFinal = document.getElementById("filtroAtualizacaoFinal");
+const erroFiltro = document.getElementById("erroFiltro");
 
 const listaLembretes = document.getElementById("listaLembretes");
+const carregando = document.getElementById("carregando");
 const mensagemVazia = document.getElementById("mensagemVazia");
-
-const filtroDescricao = document.getElementById("filtroDescricao");
-const tamanhoPagina = document.getElementById("tamanhoPagina");
-
+const mensagemErro = document.getElementById("mensagemErro");
+const textoErro = document.getElementById("textoErro");
 const totalRegistros = document.getElementById("totalRegistros");
+const tamanhoPagina = document.getElementById("tamanhoPagina");
+const cabecalhosOrdenaveis = document.querySelectorAll("th[data-ordem]");
+
+const infoPaginacao = document.getElementById("infoPaginacao");
 const paginaAtualElemento = document.getElementById("paginaAtual");
-
-const btnImprimir = document.getElementById("btnImprimir");
-const btnNovo = document.getElementById("btnNovo");
-const btnCancelar = document.getElementById("btnCancelar");
-const btnFiltrar = document.getElementById("btnFiltrar");
-
+const paginas = document.getElementById("paginas");
 const btnAnterior = document.getElementById("btnAnterior");
 const btnProximo = document.getElementById("btnProximo");
 
-const tituloFormulario = document.getElementById("tituloFormulario");
+const dialogoExcluir = document.getElementById("dialogoExcluir");
+const textoExcluir = document.getElementById("textoExcluir");
 
-
-// ========================================
-// INICIALIZAÇÃO
-// ========================================
-
-document.addEventListener("DOMContentLoaded", () => {
-    filtrarLembretes();
-});
-
-// ========================================
-// GET /lembretes/filtro
-// ========================================
-async function filtrarLembretes() {
-    try {
-        const dataAtual = new Date();
-        const dataFormatada = dataAtual.getFullYear() + "-" +
-            String(dataAtual.getMonth() + 1).padStart(2, "0") + "-" +
-            String(dataAtual.getDate()).padStart(2, "0");
-
-        const params = new URLSearchParams();
-
-        params.append("NumeroPagina", paginaAtual);
-        params.append("TamanhoPagina", tamanhoPagina.value);
-        params.append("Descricao", filtroDescricao.value);
-
-        /*TODO: implementar todos os filtros no html*/
-        params.append("Ordem", "DataCadastro");
-        params.append("Direcao", "DESC");
-        params.append("DataCadastroInicial", dataFormatada);
-        params.append("DataCadastroFinal", dataFormatada);
-        params.append("DataAtualizacaoInicial", dataFormatada);
-        params.append("DataAtualizacaoFinal", dataFormatada);
-        
-        console.log('filtro-> params', params);
-
-        const response = await fetch(
-            `${API_URL}/lembretes/filtro?${params}`
-        );
-
-        if (!response.ok) {
-            throw new Error("Erro ao filtrar lembretes.");
-        }
-
-        const resultado = await response.json();
-
-        renderizarLembretes(resultado.lembretes);
-
-        totalRegistros.textContent =
-            `${resultado.total} registros`;
-
-        paginaAtualElemento.textContent =
-            `Página ${resultado.numeroPagina}`;
-
-        btnAnterior.disabled =
-            paginaAtual <= 1;
-
-        btnProximo.disabled =
-            paginaAtual * resultado.tamanhoPagina >= resultado.total;
-
-    } catch (error) {
-
-        console.error(error);
-
-        mostrarToast(
-            "Erro ao realizar o filtro."
-        );
+class ErroApi extends Error {
+    constructor(mensagem, status) {
+        super(mensagem);
+        this.status = status;
     }
 }
 
-// ========================================
-// GET /lembretes/imprimir
-// ========================================
-async function imprimirLembretes() {
+async function requisicao(caminho, opcoes = {}) {
+    let response;
+
     try {
-        const dataAtual = new Date();
-        const dataFormatada = dataAtual.getFullYear() + "-" +
-            String(dataAtual.getMonth() + 1).padStart(2, "0") + "-" +
-            String(dataAtual.getDate()).padStart(2, "0");
+        response = await fetch(`${API_URL}${caminho}`, opcoes);
+    } catch (error) {
+        throw new ErroApi("Não foi possível se comunicar com a API. Verifique se ela está em execução.", 0);
+    }
 
-        const params = new URLSearchParams();
+    if (!response.ok) {
+        let mensagem = "";
 
-        params.append("NumeroPagina", paginaAtual);
-        params.append("TamanhoPagina", tamanhoPagina.value);
-        params.append("Descricao", filtroDescricao.value);
-
-        /*TODO: implementar todos os filtros no html*/
-        params.append("Ordem", "DataCadastro");
-        params.append("Direcao", "DESC");
-        params.append("DataCadastroInicial", dataFormatada);
-        params.append("DataCadastroFinal", dataFormatada);
-        params.append("DataAtualizacaoInicial", dataFormatada);
-        params.append("DataAtualizacaoFinal", dataFormatada);
-
-        const response = await fetch(
-            `${API_URL}/lembretes/imprimir?${params}`
-        );
-
-        if (!response.ok) {
-            throw new Error("Erro ao filtrar lembretes.");
+        try {
+            const texto = await response.text();
+            mensagem = texto ? JSON.parse(texto) : "";
+        } catch {
+            mensagem = "";
         }
-        
-        console.log("teste");
 
+        if (typeof mensagem !== "string" || !mensagem) {
+            mensagem = mensagemPorStatus(response.status);
+        }
+
+        throw new ErroApi(mensagem, response.status);
+    }
+
+    return response;
+}
+
+function mensagemPorStatus(status) {
+    if (status === 400) return "A requisição enviada é inválida.";
+    if (status === 404) return "Lembrete não encontrado.";
+    if (status >= 500) return "A API encontrou um erro interno. Tente novamente.";
+    return `Erro inesperado (HTTP ${status}).`;
+}
+
+function montarParametros() {
+    const params = new URLSearchParams();
+
+    params.append("NumeroPagina", estado.pagina);
+    params.append("TamanhoPagina", tamanhoPagina.value);
+    params.append("Ordem", estado.ordem);
+    params.append("Direcao", estado.direcao);
+
+    const filtros = {
+        Descricao: filtroDescricao.value.trim(),
+        DataCadastroInicial: filtroCadastroInicial.value,
+        DataCadastroFinal: filtroCadastroFinal.value,
+        DataAtualizacaoInicial: filtroAtualizacaoInicial.value,
+        DataAtualizacaoFinal: filtroAtualizacaoFinal.value
+    };
+
+    Object.entries(filtros).forEach(([chave, valor]) => {
+        if (valor) {
+            params.append(chave, valor);
+        }
+    });
+
+    return params;
+}
+
+function validarFiltros() {
+    if (filtroCadastroInicial.value && filtroCadastroFinal.value
+        && filtroCadastroInicial.value > filtroCadastroFinal.value) {
+        return "A data de cadastro inicial não pode ser maior que a final.";
+    }
+
+    if (filtroAtualizacaoInicial.value && filtroAtualizacaoFinal.value
+        && filtroAtualizacaoInicial.value > filtroAtualizacaoFinal.value) {
+        return "A data de atualização inicial não pode ser maior que a final.";
+    }
+
+    return "";
+}
+
+async function filtrarLembretes() {
+    const erro = validarFiltros();
+    erroFiltro.textContent = erro;
+
+    if (erro) {
+        mostrarToast(erro, "erro");
+        return;
+    }
+
+    mostrarEstado("carregando");
+
+    try {
+        const response = await requisicao(`/lembretes/filtro?${montarParametros()}`);
+        const resultado = await response.json();
+
+        const total = Number(resultado.total) || 0;
+        const tamanho = Number(resultado.tamanhoPagina) || Number(tamanhoPagina.value);
+        estado.totalPaginas = Math.max(1, Math.ceil(total / tamanho));
+
+        if (resultado.lembretes.length === 0 && total > 0 && estado.pagina > estado.totalPaginas) {
+            estado.pagina = estado.totalPaginas;
+            return filtrarLembretes();
+        }
+
+        renderizarLembretes(resultado.lembretes);
+        atualizarPaginacao(total, tamanho, resultado.lembretes.length);
+    } catch (error) {
+        console.error(error);
+        listaLembretes.innerHTML = "";
+        textoErro.textContent = error.message;
+        mostrarEstado("erro");
+        atualizarPaginacao(0, Number(tamanhoPagina.value), 0);
+        totalRegistros.classList.add("hidden");
+        mostrarToast(error.message, "erro");
+    }
+}
+
+async function imprimirLembretes() {
+    const erro = validarFiltros();
+    erroFiltro.textContent = erro;
+
+    if (erro) {
+        mostrarToast(erro, "erro");
+        return;
+    }
+
+    try {
+        const response = await requisicao(`/lembretes/imprimir?${montarParametros()}`);
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
 
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "relatorio-lembretes.pdf";
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "relatorio-lembretes.pdf";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
 
-        document.body.appendChild(a)
-        a.click();
-        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
 
-        setTimeout(() => URL.revokeObjectURL(url), 10000)
-
+        mostrarToast("Relatório gerado com sucesso!", "sucesso");
     } catch (error) {
-
         console.error(error);
-
-        mostrarToast(
-            "Erro ao realizar o filtro."
-        );
+        mostrarToast(`Não foi possível gerar o relatório. ${error.message}`, "erro");
     }
 }
 
-// ========================================
-// POST /lembretes
-// ========================================
+async function criarLembrete(texto) {
+    await requisicao("/lembretes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descricao: texto })
+    });
 
-async function criarLembrete() {
-    try {
-
-        const dados = { 
-            descricao: descricao.value
-        };
-
-        const response = await fetch(
-            `${API_URL}/lembretes`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(dados)
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error("Erro ao criar lembrete.");
-        }
-
-        mostrarToast("Lembrete criado com sucesso!");
-
-        fecharFormulario();
-
-        await filtrarLembretes();
-
-    } catch (error) {
-
-        console.error(error);
-
-        mostrarToast("Não foi possível criar o lembrete.");
-    }
+    mostrarToast("Lembrete cadastrado com sucesso!", "sucesso");
+    estado.pagina = 1;
 }
 
-
-// ========================================
-// GET /lembretes/{id}
-// ========================================
 async function buscarLembrete(id) {
-
     try {
-
-        const response = await fetch(
-            `${API_URL}/lembretes/${id}`
-        );
-
-        if (!response.ok) {
-            throw new Error("Lembrete não encontrado.");
-        }
-
+        const response = await requisicao(`/lembretes/${id}`);
         const lembrete = await response.json();
 
-        lembreteId.value = lembrete.id;
-        descricao.value = lembrete.descricao;
-
-        tituloFormulario.textContent = "Editar lembrete";
-
-        formulario.classList.remove("hidden");
-
+        abrirFormulario(lembrete);
     } catch (error) {
-
         console.error(error);
-
-        mostrarToast(
-            "Não foi possível buscar o lembrete."
-        );
+        mostrarToast(`Não foi possível buscar o lembrete. ${error.message}`, "erro");
     }
 }
 
+async function atualizarLembrete(id, texto) {
+    await requisicao(`/lembretes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descricao: texto })
+    });
 
-// ========================================
-// PUT /lembretes/{id}
-// ========================================
-
-async function atualizarLembrete() {
-
-    try {
-
-        const dados = {
-            descricao: descricao.value
-        };
-
-        const response = await fetch(
-            `${API_URL}/lembretes/${lembreteId.value}`,
-            {
-                method: "PUT",
-
-                headers: {
-                    "Content-Type": "application/json"
-                },
-
-                body: JSON.stringify(dados)
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error("Erro ao atualizar.");
-        }
-
-        mostrarToast(
-            "Lembrete atualizado com sucesso!"
-        );
-
-        fecharFormulario();
-
-        await filtrarLembretes();
-
-    } catch (error) {
-
-        console.error(error);
-
-        mostrarToast(
-            "Não foi possível atualizar o lembrete."
-        );
-    }
+    mostrarToast("Lembrete atualizado com sucesso!", "sucesso");
 }
 
-
-// ========================================
-// DELETE /lembretes/{id}
-// ========================================
-async function excluirLembrete(id) {
-
-    const confirmou = confirm(
-        "Deseja realmente excluir este lembrete?"
-    );
+async function excluirLembrete(lembrete) {
+    const confirmou = await confirmarExclusao(lembrete.descricao);
 
     if (!confirmou) {
         return;
     }
 
     try {
+        await requisicao(`/lembretes/${lembrete.id}`, { method: "DELETE" });
 
-        const response = await fetch(
-            `${API_URL}/lembretes/${id}`,
-            {
-                method: "DELETE"
-            }
-        );
+        mostrarToast("Lembrete excluído com sucesso!", "sucesso");
 
-        if (!response.ok) {
-            throw new Error("Erro ao excluir.");
+        if (lembreteId.value === lembrete.id) {
+            fecharFormulario();
         }
 
-        mostrarToast(
-            "Lembrete excluído com sucesso!"
-        );
-
         await filtrarLembretes();
-
     } catch (error) {
-
         console.error(error);
-
-        mostrarToast(
-            "Não foi possível excluir o lembrete."
-        );
+        mostrarToast(`Não foi possível excluir o lembrete. ${error.message}`, "erro");
     }
 }
 
+function confirmarExclusao(texto) {
+    textoExcluir.textContent = `"${resumir(texto, 60)}"`;
+    dialogoExcluir.returnValue = "";
+    dialogoExcluir.showModal();
 
-// ========================================
-// RENDERIZAÇÃO
-// ========================================
+    return new Promise(resolve => {
+        dialogoExcluir.addEventListener("close", () => {
+            resolve(dialogoExcluir.returnValue === "confirmar");
+        }, { once: true });
+    });
+}
+
 function renderizarLembretes(lembretes) {
     listaLembretes.innerHTML = "";
 
     if (!lembretes || lembretes.length === 0) {
-        mensagemVazia.classList.remove("hidden");
-
+        mostrarEstado("vazio");
         return;
     }
 
-    mensagemVazia.classList.add("hidden");
+    mostrarEstado("lista");
 
     lembretes.forEach(lembrete => {
         const tr = document.createElement("tr");
 
-        tr.innerHTML = `
-            <td>
-                ${lembrete.descricao}
-            </td>
+        tr.appendChild(criarCelula("Descrição", lembrete.descricao, "celula-descricao"));
+        tr.appendChild(criarCelula("Cadastro", formatarData(lembrete.dataCadastro)));
+        tr.appendChild(criarCelula("Atualização", formatarData(lembrete.dataAtualizacao)));
 
-            <td>
-                ${formatarData(lembrete.dataCadastro)}
-            </td>
+        const status = document.createElement("span");
+        status.className = `status ${lembrete.isAtivo ? "status-ativo" : "status-inativo"}`;
+        status.textContent = lembrete.isAtivo ? "Ativo" : "Inativo";
+        tr.appendChild(criarCelula("Status", status));
 
-            <td>
-                ${formatarData(lembrete.dataAtualizacao)}
-            </td>
-
-            <td>
-                <span class="status ${
-                    lembrete.isAtivo
-                        ? "status-ativo"
-                        : "status-inativo"
-                }">
-                    ${
-                        lembrete.isAtivo
-                            ? "Ativo"
-                            : "Inativo"
-                    }
-                </span>
-            </td>
-
-            <td>
-                <div class="actions">
-
-                    <button
-                        class="btn btn-edit"
-                        onclick="buscarLembrete('${lembrete.id}')">
-                        Editar
-                    </button>
-
-                    <button
-                        class="btn btn-danger"
-                        onclick="excluirLembrete('${lembrete.id}')">
-                        Excluir
-                    </button>
-
-                </div>
-            </td>
-        `;
+        const acoes = document.createElement("div");
+        acoes.className = "acoes";
+        acoes.appendChild(criarBotao("Editar", "btn-editar", () => buscarLembrete(lembrete.id)));
+        acoes.appendChild(criarBotao("Excluir", "btn-excluir", () => excluirLembrete(lembrete)));
+        tr.appendChild(criarCelula("Ações", acoes, "col-acoes"));
 
         listaLembretes.appendChild(tr);
     });
 }
 
+function criarCelula(rotulo, conteudo, classe = "") {
+    const td = document.createElement("td");
+    td.dataset.rotulo = rotulo;
 
-// ========================================
-// FORMULÁRIO
-// ========================================
-btnImprimir.addEventListener("click", () => {
-    console.log('click-> imprimir lembretes');
-    imprimirLembretes();
-});
+    if (classe) {
+        td.className = classe;
+    }
 
-btnNovo.addEventListener("click", () => {
-    abrirFormularioNovo();
-});
+    if (conteudo instanceof Node) {
+        td.appendChild(conteudo);
+    } else {
+        td.textContent = conteudo;
+    }
 
+    return td;
+}
 
-btnCancelar.addEventListener("click", () => {
-    fecharFormulario();
-});
+function criarBotao(texto, classe, acao) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = `btn btn-pequeno ${classe}`;
+    botao.textContent = texto;
+    botao.addEventListener("click", acao);
+    return botao;
+}
 
-formLembrete.addEventListener("submit", async (event) => {
-    event.preventDefault();
+function mostrarEstado(qual) {
+    carregando.classList.toggle("hidden", qual !== "carregando");
+    mensagemVazia.classList.toggle("hidden", qual !== "vazio");
+    mensagemErro.classList.toggle("hidden", qual !== "erro");
+    listaLembretes.classList.toggle("hidden", qual !== "lista");
+}
 
-    if (!descricao.value.trim()) {
-        mostrarToast("Informe uma descrição.");
+function atualizarPaginacao(total, tamanho, quantidadeNaPagina) {
+    totalRegistros.textContent = `${total} ${total === 1 ? "registro" : "registros"}`;
+    totalRegistros.classList.remove("hidden");
+    document.querySelector(".paginacao").classList.toggle("hidden", total === 0);
 
+    if (total === 0) {
+        infoPaginacao.textContent = "Nenhum registro";
+    } else {
+        const inicio = (estado.pagina - 1) * tamanho + 1;
+        const fim = inicio + quantidadeNaPagina - 1;
+        infoPaginacao.textContent = `Exibindo ${inicio}–${fim} de ${total}`;
+    }
+
+    paginaAtualElemento.textContent = `Página ${estado.pagina} de ${estado.totalPaginas}`;
+    btnAnterior.disabled = estado.pagina <= 1;
+    btnProximo.disabled = estado.pagina >= estado.totalPaginas;
+
+    paginas.innerHTML = "";
+
+    numerosDePagina(estado.pagina, estado.totalPaginas).forEach(numero => {
+        if (numero === "...") {
+            const reticencias = document.createElement("span");
+            reticencias.className = "reticencias";
+            reticencias.textContent = "…";
+            paginas.appendChild(reticencias);
+            return;
+        }
+
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.className = "btn-pagina";
+        botao.textContent = numero;
+
+        if (numero === estado.pagina) {
+            botao.classList.add("ativa");
+            botao.setAttribute("aria-current", "page");
+        }
+
+        botao.addEventListener("click", () => irParaPagina(numero));
+        paginas.appendChild(botao);
+    });
+}
+
+function numerosDePagina(atual, total) {
+    if (total <= 7) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const lista = [1];
+    const inicio = Math.max(2, atual - 1);
+    const fim = Math.min(total - 1, atual + 1);
+
+    if (inicio > 2) lista.push("...");
+    for (let i = inicio; i <= fim; i++) lista.push(i);
+    if (fim < total - 1) lista.push("...");
+
+    lista.push(total);
+    return lista;
+}
+
+function irParaPagina(numero) {
+    if (numero < 1 || numero > estado.totalPaginas || numero === estado.pagina) {
         return;
     }
 
-    if (lembreteId.value) {
-        await atualizarLembrete();
+    estado.pagina = numero;
+    filtrarLembretes();
+}
+
+function ordenarPor(campo) {
+    if (estado.ordem === campo) {
+        estado.direcao = estado.direcao === "ASC" ? "DESC" : "ASC";
     } else {
-        await criarLembrete();
+        estado.ordem = campo;
+        estado.direcao = "ASC";
     }
-});
 
+    estado.pagina = 1;
+    atualizarCabecalhos();
+    filtrarLembretes();
+}
 
-function abrirFormularioNovo() {
-    lembreteId.value = "";
-    descricao.value = "";
+function atualizarCabecalhos() {
+    cabecalhosOrdenaveis.forEach(th => {
+        const ativo = th.dataset.ordem === estado.ordem;
+        const ordem = estado.direcao === "ASC" ? "ascending" : "descending";
 
-    tituloFormulario.textContent = "Novo lembrete";
+        th.setAttribute("aria-sort", ativo ? ordem : "none");
+        th.classList.toggle("ordenado", ativo);
+    });
+}
 
+function abrirFormulario(lembrete = null) {
+    limparErroDescricao();
+
+    lembreteId.value = lembrete ? lembrete.id : "";
+    descricao.value = lembrete ? lembrete.descricao : "";
+    tituloFormulario.textContent = lembrete ? "Editar lembrete" : "Novo lembrete";
+    btnSalvar.textContent = lembrete ? "Salvar alterações" : "Salvar";
+    formulario.classList.toggle("editando", Boolean(lembrete));
+
+    atualizarContador();
     formulario.classList.remove("hidden");
-    descricao.focus();
+    formulario.scrollIntoView({ behavior: "smooth", block: "start" });
+    descricao.focus({ preventScroll: true });
 }
 
 function fecharFormulario() {
     formulario.classList.add("hidden");
     formLembrete.reset();
     lembreteId.value = "";
+    limparErroDescricao();
+    atualizarContador();
 }
 
-// ========================================
-// FILTRO
-// ========================================
-btnFiltrar.addEventListener("click", () => {
-    paginaAtual = 1;
-    filtrarLembretes();
-});
+function limparErroDescricao() {
+    erroDescricao.textContent = "";
+    descricao.classList.remove("invalido");
+    descricao.removeAttribute("aria-invalid");
+}
 
-filtroDescricao.addEventListener("keyup", event => {
-    if (event.key === "Enter") {
-        paginaAtual = 1;
-        filtrarLembretes();
+function atualizarContador() {
+    contadorDescricao.textContent = `${descricao.value.length}/500`;
+}
+
+async function salvarLembrete(event) {
+    event.preventDefault();
+
+    const texto = descricao.value.trim();
+
+    if (!texto) {
+        erroDescricao.textContent = "A descrição é obrigatória.";
+        descricao.classList.add("invalido");
+        descricao.setAttribute("aria-invalid", "true");
+        descricao.focus();
+        mostrarToast("Preencha a descrição do lembrete.", "aviso");
+        return;
     }
-});
 
-// ========================================
-// PAGINAÇÃO
-// ========================================
-btnAnterior.addEventListener("click", () => {
-    if (paginaAtual > 1) {
-        paginaAtual--;
-        filtrarLembretes();
+    btnSalvar.disabled = true;
+
+    try {
+        if (lembreteId.value) {
+            await atualizarLembrete(lembreteId.value, texto);
+        } else {
+            await criarLembrete(texto);
+        }
+
+        fecharFormulario();
+        await filtrarLembretes();
+    } catch (error) {
+        console.error(error);
+        const acao = lembreteId.value ? "atualizar" : "cadastrar";
+        mostrarToast(`Não foi possível ${acao} o lembrete. ${error.message}`, "erro");
+    } finally {
+        btnSalvar.disabled = false;
     }
-});
+}
 
-btnProximo.addEventListener("click", () => {
-    paginaAtual++;
+function limparFiltros() {
+    formFiltro.reset();
+    erroFiltro.textContent = "";
+    estado.pagina = 1;
     filtrarLembretes();
-});
+}
 
-
-// ========================================
-// UTILITÁRIOS
-// ========================================
 function formatarData(data) {
-
     if (!data) {
         return "-";
     }
 
-    return new Date(data).toLocaleString(
-        "pt-BR"
-    );
+    return new Date(data).toLocaleString("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short"
+    });
 }
 
+function resumir(texto, limite) {
+    return texto.length > limite ? `${texto.slice(0, limite)}…` : texto;
+}
 
-function mostrarToast(mensagem) {
-    const toast = document.getElementById("toast");
-
+function mostrarToast(mensagem, tipo = "info") {
+    const container = document.getElementById("toasts");
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${tipo}`;
+    toast.setAttribute("role", tipo === "erro" ? "alert" : "status");
     toast.textContent = mensagem;
 
-    toast.classList.remove("hidden");
+    container.appendChild(toast);
 
-    setTimeout(() => { toast.classList.add("hidden"); }, 3000);
+    while (container.children.length > 3) {
+        container.firstElementChild.remove();
+    }
+
+    requestAnimationFrame(() => toast.classList.add("visivel"));
+
+    setTimeout(() => {
+        toast.classList.remove("visivel");
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
 }
+
+document.getElementById("btnNovo").addEventListener("click", () => abrirFormulario());
+document.getElementById("btnCancelar").addEventListener("click", fecharFormulario);
+document.getElementById("btnFecharFormulario").addEventListener("click", fecharFormulario);
+document.getElementById("btnImprimir").addEventListener("click", imprimirLembretes);
+document.getElementById("btnLimpar").addEventListener("click", limparFiltros);
+document.getElementById("btnTentarNovamente").addEventListener("click", filtrarLembretes);
+
+formLembrete.addEventListener("submit", salvarLembrete);
+
+descricao.addEventListener("input", () => {
+    atualizarContador();
+
+    if (descricao.value.trim()) {
+        limparErroDescricao();
+    }
+});
+
+formFiltro.addEventListener("submit", event => {
+    event.preventDefault();
+    estado.pagina = 1;
+    filtrarLembretes();
+});
+
+tamanhoPagina.addEventListener("change", () => {
+    estado.pagina = 1;
+    filtrarLembretes();
+});
+
+cabecalhosOrdenaveis.forEach(th => {
+    th.querySelector("button").addEventListener("click", () => ordenarPor(th.dataset.ordem));
+});
+
+btnAnterior.addEventListener("click", () => irParaPagina(estado.pagina - 1));
+btnProximo.addEventListener("click", () => irParaPagina(estado.pagina + 1));
+
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !formulario.classList.contains("hidden") && !dialogoExcluir.open) {
+        fecharFormulario();
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    atualizarCabecalhos();
+    filtrarLembretes();
+});
